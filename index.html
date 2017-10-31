@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <script type="text/javascript">
+    let topLevelDescribeBlocks = [];
+    
+    function convert() {
+      document.getElementById('output').value = convertScenarioTextToCode(document.getElementById('input').value)
+    }
+  
+    function convertScenarioTextToCode(scenarioText) {
+      topLevelDescribeBlocks = [];
+      
+      const scenarioLines = scenarioText.split('\n');
+      
+      scenarioLines.forEach(processScenarioLine);
+      
+      return createCode(topLevelDescribeBlocks, 0).join('\n');
+    }
+    
+    function processScenarioLine(scenarioLine) {
+      try {
+        const paddingTabsMatch = scenarioLine.match(/\t+[-A-Za-z]/);
+        const indentLevel = paddingTabsMatch ? paddingTabsMatch[0].match(/\t/g).length : 0;
+        const lineText = scenarioLine.trim();
+          
+        if (lineText[0] === '-') {
+          addTestToCurrentDescribeBlock(lineText, indentLevel);
+        } else if (lineText !== '') {
+          addDescribeBlock(indentLevel, lineText);
+        }
+      } catch (err) {
+        window.alert(`An error occurred while processing scenario line: "${scenarioLine}"`);
+        
+        throw err;
+      }
+    }
+    
+    function addTestToCurrentDescribeBlock(testText, indentLevel) {
+      const describeBlock = findLastDescribeBlock(indentLevel - 1);
+      
+      describeBlock.children.push(testText);
+    }
+    
+    function addDescribeBlock(indentLevel, describeBlockText) {
+      const target = indentLevel === 0 ? topLevelDescribeBlocks : findLastDescribeBlock(indentLevel - 1).children;
+      
+      target.push({
+        text: describeBlockText,
+        children: []        
+      });
+    }
+    
+    function findLastDescribeBlock(targetIndentLevel, parentDescribeBlock, currentIndentLevel) {
+      if (!currentIndentLevel) {
+        currentIndentLevel = 0;
+      }
+      
+      const blocksToSearch = parentDescribeBlock ? parentDescribeBlock.children : topLevelDescribeBlocks;
+      let currentDescribeBlock
+      
+      blocksToSearch.forEach(block => {
+        if (block.children) {
+          currentDescribeBlock = block;
+        }
+      });
+    
+      if (targetIndentLevel === currentIndentLevel) {
+        return currentDescribeBlock;
+      } else {
+        return findLastDescribeBlock(targetIndentLevel, currentDescribeBlock, currentIndentLevel + 1);
+      }      
+    }
+    
+    function createCode(blocks, indentLevel) {
+      let code = [];
+      
+      blocks.forEach(block => {
+        if (block.children) {          
+          code.push(`${generateTabs(indentLevel)}describe('${block.text}', () => {`);
+          code = code.concat(createCode(block.children, indentLevel + 1));
+          code.push(`${generateTabs(indentLevel)}});`);
+        } else {          
+          code.push(`${generateTabs(indentLevel)}it('${block.substring(1)}');`);
+        }
+      });
+      
+      return code;
+    }
+    
+    function generateTabs(indentLevel) {
+      let tabs = '';
+    
+      for (var i = 0; i < indentLevel; i++) {
+        tabs = tabs + '    ';
+      }
+      
+      return tabs;
+    }
+  </script>
+</head>
+<body>
+    <h3>Scenario Text:</h3>
+    <textarea id="input" style="width: 800px; height: 200px;"></textarea>
+    <h3>Scenario Code Output:</h3>
+    <textarea id="output" style="width: 800px; height: 200px; border: 1px solid gray; overflow: scroll" readonly="true"></textarea>
+    <div><button style="margin-top: 20px" onclick="javascript: convert()">Convert</button></div>
+</body>
+</html>
